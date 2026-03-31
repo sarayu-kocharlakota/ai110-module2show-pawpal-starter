@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import List
+from datetime import datetime, timedelta
+from typing import List, Optional
 
 
 @dataclass
@@ -11,10 +11,30 @@ class Task:
     priority: int
     pet: object
     is_complete: bool = False
+    frequency: Optional[str] = None  # "daily", "weekly", or None
 
     def complete(self):
-        """Mark this task as complete."""
+        """Mark this task as complete and schedule next if recurring."""
         self.is_complete = True
+        if self.frequency == "daily":
+            return Task(
+                title=self.title,
+                task_type=self.task_type,
+                due_datetime=self.due_datetime + timedelta(days=1),
+                priority=self.priority,
+                pet=self.pet,
+                frequency=self.frequency
+            )
+        elif self.frequency == "weekly":
+            return Task(
+                title=self.title,
+                task_type=self.task_type,
+                due_datetime=self.due_datetime + timedelta(weeks=1),
+                priority=self.priority,
+                pet=self.pet,
+                frequency=self.frequency
+            )
+        return None
 
     def is_overdue(self) -> bool:
         """Return True if the task is past its due time and not complete."""
@@ -24,7 +44,8 @@ class Task:
         """Return a formatted string representation of the task."""
         status = "✅" if self.is_complete else "❌"
         overdue = " (OVERDUE)" if self.is_overdue() else ""
-        return f"{status} [{self.task_type.upper()}] {self.title} - Due: {self.due_datetime.strftime('%I:%M %p')}{overdue} (Priority: {self.priority})"
+        recurring = f" [{self.frequency}]" if self.frequency else ""
+        return f"{status} [{self.task_type.upper()}] {self.title} - Due: {self.due_datetime.strftime('%I:%M %p')}{overdue} (Priority: {self.priority}){recurring}"
 
 
 @dataclass
@@ -98,6 +119,25 @@ class Scheduler:
         """Return tasks sorted by priority, lowest number first."""
         return sorted(self.tasks, key=lambda t: t.priority)
 
+    def sort_by_time(self) -> List[Task]:
+        """Return tasks sorted by due time, earliest first."""
+        return sorted(self.tasks, key=lambda t: t.due_datetime)
+
+    def filter_by_pet(self, pet_name: str) -> List[Task]:
+        """Return only tasks belonging to a specific pet."""
+        return [t for t in self.tasks if t.pet.name == pet_name]
+
+    def filter_by_status(self, complete: bool) -> List[Task]:
+        """Return tasks filtered by completion status."""
+        return [t for t in self.tasks if t.is_complete == complete]
+
+    def mark_task_complete(self, task: Task):
+        """Mark a task complete and add next occurrence if recurring."""
+        next_task = task.complete()
+        if next_task:
+            self.add_task(next_task)
+            task.pet.add_task(next_task)
+
     def detect_conflicts(self) -> List[tuple]:
         """Detect and return pairs of tasks that overlap for the same pet."""
         conflicts = []
@@ -105,6 +145,15 @@ class Scheduler:
         for i in range(len(tasks)):
             for j in range(i + 1, len(tasks)):
                 t1, t2 = tasks[i], tasks[j]
-                if t1.pet == t2.pet and t1.due_datetime == t2.due_datetime:
+                if t1.pet.name == t2.pet.name and t1.due_datetime.hour == t2.due_datetime.hour:
                     conflicts.append((t1, t2))
         return conflicts
+
+    def print_conflicts(self):
+        """Print a warning message for any detected conflicts."""
+        conflicts = self.detect_conflicts()
+        if conflicts:
+            for t1, t2 in conflicts:
+                print(f"⚠️ CONFLICT: '{t1.title}' and '{t2.title}' are both scheduled at {t1.due_datetime.strftime('%I:%M %p')} for {t1.pet.name}!")
+        else:
+            print("✅ No conflicts detected!")
