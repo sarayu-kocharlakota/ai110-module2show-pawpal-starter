@@ -24,6 +24,8 @@ My design changed a bit during implemenation. After referring to AI and asking i
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
 
+One tradeoff my scheduler makes is that it only verifies for exact hour matches when analyzing conflicts. If there is one task at 8:00am and another at 8:30am, nothing gets flagged. However, if both tasks are at 8:00am, it gets flagged. This tradeoff is reasonable for this scenario as this is a straightforward and easy app for pet care. So, just checking hours works great. The most common timings for tasks for pets such as feedings or walks are scheduled on the hour. This covers frequently occuring cases which prevents the code from being overly complex. 
+
 ---
 
 ## 3. AI Collaboration
